@@ -29,102 +29,44 @@ let down = "down"
 let left = "left"
 let right = "right"
 
-
-function ultra(oldDir, sameDir, newDir) {
-    if (oldDir == "start") {
-        return true;
-    }
-    let maxSameDir = 10;
-    let minSameDir = 4;
-    let canGoStraight = oldDir == newDir && sameDir < maxSameDir;
-    let canTurn = oldDir != newDir && sameDir >= minSameDir;
-    return canGoStraight || canTurn;
-}
-
-function part2Neigh(move) {
+function part2Neigh(move, minSameDir, maxSameDir) {
     let row = move.row
     let col = move.col
     let n = []
     let oldDir = move.dir;
-    if (col < maxCol - 1) {
-        if (oldDir != left) {
-            let sameDir = oldDir == right ? move.sameDir + 1 : 1
-            let allowed = ultra(oldDir, move.sameDir, right);
-            if (allowed) {
-                n.push({row: row, col: col + 1, dir: right, sameDir: sameDir})
+    if (oldDir == up || oldDir == down|| oldDir == "start") {
+        for (let i = minSameDir; i <= maxSameDir; i++) {
+            if (col + i <= maxCol - 1) {
+                n.push({row: row, col: col + i, dir: right})
             }
         }
     }
-    if (row < input.length - 1) {
-        if (oldDir != up) {
-            let sameDir = oldDir == down ? move.sameDir + 1 : 1
-            let allowed = ultra(oldDir, move.sameDir, down);
-            if (allowed) {
-                n.push({row: row + 1, col: col, dir: down, sameDir: sameDir})
+    if (oldDir == up || oldDir == down|| oldDir == "start") {
+        for (let i = minSameDir; i <= maxSameDir; i++) {
+            if (col - i >= 0) {
+                n.push({row: row, col: col - i, dir: left})
             }
         }
     }
-    if (col > 0) {
-        if (oldDir != right) {
-            let sameDir = oldDir == left ? move.sameDir + 1 : 1
-            let allowed = ultra(oldDir, move.sameDir, left);
-            if (allowed) {
-                n.push({row: row, col: col - 1, dir: left, sameDir: sameDir})
+
+
+    if (oldDir == left || oldDir == right|| oldDir == "start") {
+        for (let i = minSameDir; i <= maxSameDir; i++) {
+            if (row + i <= input.length - 1) {
+                n.push({row: row + i, col: col, dir: down})
             }
         }
     }
-    if (row > 0) {
-        if (oldDir != down) {
-            let sameDir = oldDir == up ? move.sameDir + 1 : 1
-            let allowed = ultra(oldDir, move.sameDir, up);
-            if (allowed) {
-                n.push({row: row - 1, col: col, dir: up, sameDir: sameDir})
+    if (oldDir == left || oldDir == right|| oldDir == "start") {
+        for (let i = minSameDir; i <= maxSameDir; i++) {
+            if (row - i >= 0) {
+                n.push({row: row - i, col: col, dir: up})
             }
         }
     }
     return n
 }
 
-function neighbors(move) {
-    let row = move.row
-    let col = move.col
-    let n = []
-    let oldDir = move.dir;
-    let maxSameDir = 4;
-    if (col < maxCol - 1) {
-        if (oldDir != left) {
-            let sameDir = oldDir == right ? move.sameDir + 1 : 1
-            if (sameDir < maxSameDir) {
-                n.push({row: row, col: col + 1, dir: right, sameDir: sameDir})
-            }
-        }
-    }
-    if (row < input.length - 1) {
-        if (oldDir != up) {
-            let sameDir = oldDir == down ? move.sameDir + 1 : 1
-            if (sameDir < maxSameDir) {
-                n.push({row: row + 1, col: col, dir: down, sameDir: sameDir})
-            }
-        }
-    }
-    if (col > 0) {
-        if (oldDir != right) {
-            let sameDir = oldDir == left ? move.sameDir + 1 : 1
-            if (sameDir < maxSameDir) {
-                n.push({row: row, col: col - 1, dir: left, sameDir: sameDir})
-            }
-        }
-    }
-    if (row > 0) {
-        if (oldDir != down) {
-            let sameDir = oldDir == up ? move.sameDir + 1 : 1
-            if (sameDir < maxSameDir) {
-                n.push({row: row - 1, col: col, dir: up, sameDir: sameDir})
-            }
-        }
-    }
-    return n
-}
 
 let targetRow = input.length - 1
 let targetCol = maxCol - 1
@@ -136,14 +78,14 @@ function h(row, col) {
 function getKey(toHash) {
     if (toHash.hasOwnProperty("hashKey"))
         return toHash.hashKey
-    let v = `${toHash.row},${toHash.col},${toHash.dir},${toHash.sameDir}`
+    let v = `${toHash.row},${toHash.col},${toHash.dir}`
     toHash.hashKey = v
     return v
 }
 
 let openKeys={}
 let sorted=false
-function A_Star(neighFunc) {
+function A_Star(minSteps, maxSteps) {
 // The set of discovered nodes that may need to be (re-)expanded.
 // Initially, only the start node is known.
 // This is usually implemented as a min-heap or priority queue rather than a hash-set.
@@ -151,7 +93,6 @@ function A_Star(neighFunc) {
         row: 0,
         col: 0,
         dir: "start",
-        sameDir: 0,
         total: 0,
         distToGoal: Number.MAX_VALUE
     }]
@@ -185,15 +126,37 @@ function A_Star(neighFunc) {
         let currentKey = getKey(current);
         delete openKeys[currentKey]
         if (current.row == targetRow && current.col == targetCol)
-            return gScore[currentKey]
+            return {score:gScore[currentKey], reach:currentKey}
 
         let gScoreCurrent = gScore.hasOwnProperty(currentKey) ? gScore[currentKey] : Number.MAX_VALUE
 
-        for (const neighbor of neighFunc(current)) {
+        for (const neighbor of part2Neigh(current, minSteps, maxSteps)) {
             let a_key = getKey(neighbor)
             // d(current,neighbor) is the weight of the edge from current to neighbor
             // tentative_gScore is the distance from start to the neighbor through current
-            let tentative_gScore = gScoreCurrent + input[neighbor.row][neighbor.col]
+            let more = 0
+            if (neighbor.dir == right) {
+                for (let i = current.col + 1; i <= neighbor.col; i++) {
+                    more += input[neighbor.row][i]
+                }
+            }
+            if (neighbor.dir == left) {
+                for (let i = current.col - 1; i >= neighbor.col; i--) {
+                    more += input[neighbor.row][i]
+                }
+            }
+            if (neighbor.dir == down) {
+                for (let i = current.row + 1; i <= neighbor.row; i++) {
+                    more += input[i][neighbor.col]
+                }
+            }
+            if (neighbor.dir == up) {
+                for (let i = current.row - 1; i >= neighbor.row; i--) {
+                    more += input[i][neighbor.col]
+                }
+            }
+
+            let tentative_gScore = gScoreCurrent + more
 
             let gScoreElement = gScore.hasOwnProperty(a_key) ? gScore[a_key] : Number.MAX_VALUE
             if (tentative_gScore < gScoreElement) {
@@ -213,5 +176,5 @@ function A_Star(neighFunc) {
     return Number.MAX_VALUE
 }
 
-console.log("Part 1 " + JSON.stringify(A_Star(neighbors)))
-console.log("Part 2 " + JSON.stringify(A_Star(part2Neigh)))
+console.log("Part 1 " + JSON.stringify(A_Star(1, 3).score))
+console.log("Part 2 " + JSON.stringify(A_Star(4,10).score))
